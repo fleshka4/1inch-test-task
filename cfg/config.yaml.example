@@ -1,0 +1,5 @@
+rpc_url: "https://mainnet.infura.io/v3/abc123"
+listen_addr: ":8080"
+read_header_timeout: 5s
+shutdown_timeout: 5s
+request_timeout: 8s
