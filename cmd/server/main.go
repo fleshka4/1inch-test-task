@@ -4,24 +4,31 @@ import (
 	"log"
 	"os"
 
+	"github.com/fleshka4/inch-test-task/internal/config"
 	"github.com/fleshka4/inch-test-task/internal/httpserver"
+	"github.com/fleshka4/inch-test-task/internal/uniswapv2"
 )
 
 func main() {
-	rpc := os.Getenv("ETH_RPC_URL")
-	if rpc == "" {
-		log.Fatal("ETH_RPC_URL не задан")
+	path := os.Getenv("CONFIG_PATH")
+	if path == "" {
+		path = "cfg/config.yaml"
 	}
 
-	addr := os.Getenv("ADDR")
-	if addr == "" {
-		addr = ":1337"
-	}
+	cfg := config.Load(path)
 
-	srv, err := httpserver.New(rpc)
+	client, err := uniswapv2.NewClient(cfg.RPCURL)
 	if err != nil {
-		log.Fatalf("init: %v", err)
+		log.Fatalf("uniswapv2.NewClient: %v", err)
 	}
-	log.Printf("listening on %s", addr)
-	log.Fatal(srv.ListenAndServe(addr))
+
+	srv, err := httpserver.New(client, cfg)
+	if err != nil {
+		log.Fatalf("httpserver.New: %v", err)
+	}
+
+	err = srv.ListenAndServe(cfg.ListenAddr)
+	if err != nil {
+		log.Fatalf("srv.ListenAndServe: %v", err)
+	}
 }

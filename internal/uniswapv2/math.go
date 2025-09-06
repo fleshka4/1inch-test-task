@@ -2,21 +2,21 @@ package uniswapv2
 
 import "math/big"
 
-// Константы комиссии Uniswap V2: 0.3% = 997/1000.
+// Fee constants.
 var (
 	feeMul = big.NewInt(997)
 	feeDen = big.NewInt(1000)
 )
 
-// GetAmountOut считает оффчейн результат свопа по V2:
-// amountOut = (amountIn*997 * reserveOut) / (reserveIn*1000 + amountIn*997)
-// Возвращает ok=false если ликвидности недостаточно или деление на 0.
+// GetAmountOut computes the amount of output tokens received for a given input amount,
+// using Uniswap V2 formula with 0.3% fee (997/1000).
+//
+// Returns (output, true) if calculation is successful, or (0, false) if any value is zero.
 func GetAmountOut(amountIn, reserveIn, reserveOut *big.Int) (*big.Int, bool) {
 	if amountIn.Sign() <= 0 || reserveIn.Sign() <= 0 || reserveOut.Sign() <= 0 {
 		return big.NewInt(0), false
 	}
 
-	// Локальные big.Int чтобы снизить аллокации.
 	ainFee := new(big.Int).Mul(amountIn, feeMul) // amountIn*997
 	num := new(big.Int).Mul(ainFee, reserveOut)  // * reserveOut
 	den := new(big.Int).Mul(reserveIn, feeDen)   // reserveIn*1000

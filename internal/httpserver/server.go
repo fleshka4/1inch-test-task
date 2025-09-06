@@ -2,148 +2,94 @@ package httpserver
 
 import (
 	"context"
-	"encoding/hex"
-	"fmt"
 	"log"
-	"math/big"
 	"net"
 	"net/http"
-	"strings"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
+	"github.com/fleshka4/inch-test-task/internal/config"
+	"github.com/fleshka4/inch-test-task/internal/handlers"
 	"github.com/fleshka4/inch-test-task/internal/uniswapv2"
 )
 
+// Server initializes and runs the HTTP API.
 type Server struct {
-	client *uniswapv2.Client
+	client uniswapv2.PairReader
 	mux    *http.ServeMux
+	http   *http.Server
+
+	gracefulTimeout time.Duration
 }
 
-func New(rpcURL string) (*Server, error) {
-	c, err := uniswapv2.NewClient(rpcURL)
-	if err != nil {
-		return nil, err
-	}
-	s := &Server{
-		client: c,
-		mux:    http.NewServeMux(),
-	}
-	s.mux.HandleFunc("/estimate", s.handleEstimate)
-	s.mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+// New constructs a new HTTP server.
+func New(client uniswapv2.PairReader, cfg config.Config) (*Server, error) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/estimate", handlers.NewEstimateHandler(client, cfg.RequestTimeout))
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		if _, err := w.Write([]byte("pong")); err != nil {
+			log.Printf("ping write error: %v", err)
+		}
 	})
-	return s, nil
+
+	srv := &http.Server{
+		Handler:           logMiddleware(mux),
+		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
+	}
+
+	return &Server{
+		client: client,
+		mux:    mux,
+		http:   srv,
+
+		gracefulTimeout: cfg.ShutdownGrace,
+	}, nil
 }
 
+// ListenAndServe starts the HTTP server and performs graceful shutdown on SIGINT/SIGTERM.
 func (s *Server) ListenAndServe(addr string) error {
-	srv := &http.Server{
-		Addr:              addr,
-		Handler:           s.logMiddleware(s.mux),
-		ReadHeaderTimeout: 5 * time.Second,
-	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
-	}
-	return srv.Serve(ln)
-}
-
-func (s *Server) handleEstimate(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	poolStr := q.Get("pool")
-	srcStr := q.Get("src")
-	dstStr := q.Get("dst")
-	amtStr := q.Get("src_amount")
-
-	// Валидация
-	if !isHexAddr(poolStr) || !isHexAddr(srcStr) || !isHexAddr(dstStr) || amtStr == "" {
-		http.Error(w, "bad params", http.StatusBadRequest)
-		return
-	}
-	if strings.EqualFold(srcStr, dstStr) {
-		http.Error(w, "src == dst", http.StatusBadRequest)
-		return
-	}
-	amountIn, ok := new(big.Int).SetString(amtStr, 10)
-	if !ok || amountIn.Sign() <= 0 {
-		http.Error(w, "bad src_amount", http.StatusBadRequest)
-		return
+		return errors.Wrap(err, "net.Listen")
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	// Runs server with goroutine.
+	go func() {
+		log.Printf("listening on %s", addr)
+		if err := s.http.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("http.Serve: %v", err)
+		}
+	}()
+
+	// Waits for stop signal.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	<-stop
+	log.Println("shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.gracefulTimeout)
 	defer cancel()
 
-	pair := common.HexToAddress(poolStr)
-	src := common.HexToAddress(srcStr)
-	dst := common.HexToAddress(dstStr)
-
-	// Тянем токены пула и резервы на latest состоянии
-	token0, token1, err := s.client.PairTokens(ctx, pair)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("pair tokens: %v", err), http.StatusBadGateway)
-		return
-	}
-	if !addrEq(src, token0) && !addrEq(src, token1) {
-		http.Error(w, "src не принадлежит пулу", http.StatusBadRequest)
-		return
-	}
-	if !addrEq(dst, token0) && !addrEq(dst, token1) {
-		http.Error(w, "dst не принадлежит пулу", http.StatusBadRequest)
-		return
-	}
-	if addrEq(src, dst) {
-		http.Error(w, "src == dst in pool", http.StatusBadRequest)
-		return
+	if err := s.http.Shutdown(ctx); err != nil {
+		log.Printf("http.Shutdown: %v", err)
+		return errors.Wrap(err, "s.http.Shutdown")
 	}
 
-	r0, r1, err := s.client.PairReserves(ctx, pair)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("reserves: %v", err), http.StatusBadGateway)
-		return
-	}
-
-	var reserveIn, reserveOut *big.Int
-	if addrEq(src, token0) && addrEq(dst, token1) {
-		reserveIn, reserveOut = r0, r1
-	} else if addrEq(src, token1) && addrEq(dst, token0) {
-		reserveIn, reserveOut = r1, r0
-	} else {
-		http.Error(w, "src/dst не соответствуют паре", http.StatusBadRequest)
-		return
-	}
-
-	// Расчет оффчейн по формуле Uniswap V2
-	amountOut, ok := uniswapv2.GetAmountOut(amountIn, reserveIn, reserveOut)
-	if !ok {
-		http.Error(w, "insufficient liquidity", http.StatusBadRequest)
-		return
-	}
-
-	// Ответ строго числом в текст/plain как в примере
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte(amountOut.String()))
+	log.Println("server stopped")
+	return nil
 }
 
-func (s *Server) logMiddleware(next http.Handler) http.Handler {
+func logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		log.Printf("%s %s %s", r.Method, r.URL.String(), time.Since(start))
 	})
-}
-
-func isHexAddr(s string) bool {
-	if !common.IsHexAddress(s) {
-		return false
-	}
-	// быстрый отказ для мусора вроде 0x123 без длины
-	b, err := hex.DecodeString(strings.TrimPrefix(s, "0x"))
-	return err == nil && len(b) == 20
-}
-
-func addrEq(a, b common.Address) bool {
-	return strings.EqualFold(a.Hex(), b.Hex())
 }
