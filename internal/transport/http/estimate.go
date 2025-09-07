@@ -31,7 +31,6 @@ func (s *Server) handleEstimate(w http.ResponseWriter, r *http.Request) {
 		SrcAmount: req.SrcAmount,
 	})
 	if err != nil {
-		// service возвращает понятные ошибки — сопоставляем в HTTP коды
 		switch {
 		case errors.Is(err, service.ErrInsufficientLiquidity), errors.Is(err, service.ErrInvalidArgument):
 			http.Error(w, err.Error(), http.StatusBadRequest)

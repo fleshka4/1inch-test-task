@@ -19,7 +19,6 @@ func TestNewClient(t *testing.T) {
 	t.Parallel()
 
 	t.Run("dial error", func(t *testing.T) {
-		// Используем невалидный URL для проверки ошибки
 		client, err := NewClient("invalid://url")
 		require.Error(t, err)
 		require.Nil(t, client)
