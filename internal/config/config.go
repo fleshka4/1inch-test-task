@@ -12,7 +12,7 @@ import (
 type Config struct {
 	RPCURL            string        `yaml:"rpc_url"`
 	ListenAddr        string        `yaml:"listen_addr"`
-	ShutdownGrace     time.Duration `yaml:"shutdown_timeout"`
+	GraceTimeout      time.Duration `yaml:"shutdown_timeout"`
 	RequestTimeout    time.Duration `yaml:"request_timeout"`
 	ReadHeaderTimeout time.Duration `yaml:"read_header_timeout"`
 }
@@ -42,8 +42,8 @@ func Load(path string) Config {
 	if cfg.ListenAddr == "" {
 		cfg.ListenAddr = ":1337"
 	}
-	if cfg.ShutdownGrace == 0 {
-		cfg.ShutdownGrace = defaultTimeout
+	if cfg.GraceTimeout == 0 {
+		cfg.GraceTimeout = defaultTimeout
 	}
 	if cfg.RequestTimeout == 0 {
 		cfg.RequestTimeout = defaultTimeout
