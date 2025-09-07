@@ -11,6 +11,8 @@ func bi(s string) *big.Int {
 }
 
 func TestGetAmountOut_Basic(t *testing.T) {
+	t.Parallel()
+
 	out, ok := GetAmountOut(bi("100"), bi("1000"), bi("1000"))
 	if !ok {
 		t.Fatalf("ok=false")
@@ -21,6 +23,8 @@ func TestGetAmountOut_Basic(t *testing.T) {
 }
 
 func TestGetAmountOut_Zeroes(t *testing.T) {
+	t.Parallel()
+
 	if _, ok := GetAmountOut(bi("0"), bi("1"), bi("1")); ok {
 		t.Fatal("zero amountIn should be false")
 	}

@@ -25,5 +25,10 @@ func GetAmountOut(amountIn, reserveIn, reserveOut *big.Int) (*big.Int, bool) {
 		return big.NewInt(0), false
 	}
 	out := new(big.Int).Quo(num, den)
+
+	if out.Sign() <= 0 {
+		return big.NewInt(0), false
+	}
+
 	return out, true
 }

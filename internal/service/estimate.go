@@ -46,8 +46,9 @@ func (s *EstimatorService) Estimate(ctx context.Context, req dto.EstimateRequest
 		return nil, ErrPairRead
 	}
 
-	// Check that src/dst belong to the pair.
 	var reserveIn, reserveOut *big.Int
+	// Check that src/dst belong to the pair.
+	//nolint:gocritic
 	if strings.EqualFold(req.Src.Hex(), token0.Hex()) && strings.EqualFold(req.Dst.Hex(), token1.Hex()) {
 		r0, r1, err := s.cli.GetPairReserves(ctx, req.Pool)
 		if err != nil {
