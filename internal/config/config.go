@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -19,14 +20,14 @@ type Config struct {
 
 // Load reads the config from a YAML file path.
 // Fails fatally if config is invalid or file is missing.
-func Load(path string) Config {
+func Load(path string) (Config, error) {
+	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("failed to open config file: os.Open: %v", err)
+		return Config{}, errors.Wrap(err, "os.Open")
 	}
 	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
+		if err := f.Close(); err != nil {
 			log.Printf("failed to close config file: f.Close: %v", err)
 		}
 	}(f)
@@ -34,7 +35,7 @@ func Load(path string) Config {
 	var cfg Config
 	decoder := yaml.NewDecoder(f)
 	if err := decoder.Decode(&cfg); err != nil {
-		log.Fatalf("failed to parse config file: decoder.Decode: %v", err)
+		return Config{}, errors.Wrap(err, "decoder.Decode")
 	}
 
 	// Fallbacks
@@ -53,8 +54,8 @@ func Load(path string) Config {
 	}
 
 	if cfg.RPCURL == "" {
-		log.Fatalf("rpc_url is required in config")
+		return Config{}, errors.New("rpc_url is required")
 	}
 
-	return cfg
+	return cfg, nil
 }

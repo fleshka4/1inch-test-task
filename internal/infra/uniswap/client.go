@@ -20,24 +20,33 @@ type Client interface {
 	GetPairReserves(ctx context.Context, pair common.Address) (*big.Int, *big.Int, error)
 }
 
+// EthCaller represents interface for calling contracts.
+type EthCaller interface {
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+}
+
 type ethClientImpl struct {
-	rpc     *ethclient.Client
+	caller  EthCaller
 	pairABI abi.ABI
 }
 
 // NewClient creates a new Uniswap Client backed by an Ethereum RPC connection.
 func NewClient(rpcURL string) (Client, error) {
-	r, err := ethclient.Dial(rpcURL)
+	caller, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "ethclient.Dial")
 	}
 
-	a, err := abi.JSON(strings.NewReader(pairABIJSON))
+	return newClientWithCaller(caller)
+}
+
+func newClientWithCaller(caller EthCaller) (Client, error) {
+	pairABI, err := abi.JSON(strings.NewReader(pairABIJSON))
 	if err != nil {
 		return nil, errors.Wrap(err, "abi.JSON")
 	}
 
-	return &ethClientImpl{rpc: r, pairABI: a}, nil
+	return &ethClientImpl{caller: caller, pairABI: pairABI}, nil
 }
 
 const pairABIJSON = `[
@@ -52,7 +61,7 @@ func (c *ethClientImpl) call(ctx context.Context, to common.Address, method stri
 		return nil, errors.Wrap(err, "c.pairABI.Pack")
 	}
 
-	res, err := c.rpc.CallContract(
+	res, err := c.caller.CallContract(
 		ctx,
 		ethereum.CallMsg{
 			To:   &to,
@@ -61,7 +70,7 @@ func (c *ethClientImpl) call(ctx context.Context, to common.Address, method stri
 		nil,
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "c.rpc.CallContract")
+		return nil, errors.Wrap(err, "c.caller.CallContract")
 	}
 
 	out, err := c.pairABI.Unpack(method, res)

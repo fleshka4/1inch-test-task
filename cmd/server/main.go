@@ -16,7 +16,10 @@ func main() {
 		path = "cfg/config.yaml"
 	}
 
-	cfg := config.Load(path)
+	cfg, err := config.Load(path)
+	if err != nil {
+		log.Fatalf("config.Load: %v", err)
+	}
 
 	client, err := uniswap.NewClient(cfg.RPCURL)
 	if err != nil {

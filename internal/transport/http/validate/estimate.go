@@ -12,6 +12,10 @@ import (
 
 // EstimateRequestValidate validates /estimate request and returns dto.
 func EstimateRequestValidate(r *http.Request) (*dto.EstimateRequest, int, error) {
+	if r.Method != http.MethodGet {
+		return nil, http.StatusMethodNotAllowed, errors.Errorf("invalid http method: %s", r.Method)
+	}
+
 	q := r.URL.Query()
 	p := q.Get("pool")
 	src := q.Get("src")
@@ -20,13 +24,16 @@ func EstimateRequestValidate(r *http.Request) (*dto.EstimateRequest, int, error)
 	if p == "" || src == "" || dst == "" || amt == "" {
 		return nil, http.StatusBadRequest, errors.New("missing params")
 	}
+
 	if !common.IsHexAddress(p) || !common.IsHexAddress(src) || !common.IsHexAddress(dst) {
 		return nil, http.StatusBadRequest, errors.New("bad address format")
 	}
+
 	a, ok := new(big.Int).SetString(amt, 10)
 	if !ok || a.Sign() <= 0 {
 		return nil, http.StatusBadRequest, errors.New("bad src_amount")
 	}
+
 	return &dto.EstimateRequest{
 		Pool:      common.HexToAddress(p),
 		Src:       common.HexToAddress(src),
