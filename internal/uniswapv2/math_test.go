@@ -11,7 +11,6 @@ func bi(s string) *big.Int {
 }
 
 func TestGetAmountOut_Basic(t *testing.T) {
-	// Простая проверка
 	out, ok := GetAmountOut(bi("100"), bi("1000"), bi("1000"))
 	if !ok {
 		t.Fatalf("ok=false")

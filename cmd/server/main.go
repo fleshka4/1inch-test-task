@@ -4,9 +4,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/fleshka4/inch-test-task/internal/config"
-	"github.com/fleshka4/inch-test-task/internal/httpserver"
-	"github.com/fleshka4/inch-test-task/internal/uniswapv2"
+	"github.com/fleshka4/1inch-test-task/internal/config"
+	"github.com/fleshka4/1inch-test-task/internal/infra/uniswap"
+	"github.com/fleshka4/1inch-test-task/internal/service"
+	"github.com/fleshka4/1inch-test-task/internal/transport/http"
 )
 
 func main() {
@@ -17,15 +18,14 @@ func main() {
 
 	cfg := config.Load(path)
 
-	client, err := uniswapv2.NewClient(cfg.RPCURL)
+	client, err := uniswap.NewClient(cfg.RPCURL)
 	if err != nil {
-		log.Fatalf("uniswapv2.NewClient: %v", err)
+		log.Fatalf("uniswap.NewClient: %v", err)
 	}
 
-	srv, err := httpserver.New(client, cfg)
-	if err != nil {
-		log.Fatalf("httpserver.New: %v", err)
-	}
+	estimator := service.NewEstimatorService(client)
+
+	srv := http.NewServer(estimator, cfg)
 
 	err = srv.ListenAndServe(cfg.ListenAddr)
 	if err != nil {

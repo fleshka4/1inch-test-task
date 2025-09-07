@@ -1,4 +1,4 @@
-module github.com/fleshka4/inch-test-task
+module github.com/fleshka4/1inch-test-task
 
 go 1.24.6
 
