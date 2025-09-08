@@ -65,9 +65,10 @@ func (s *EstimatorService) Estimate(ctx context.Context, req dto.EstimateRequest
 		return nil, ErrInvalidArgument
 	}
 
-	amountOut, ok := uniswapv2.GetAmountOut(req.SrcAmount, reserveIn, reserveOut)
-	if !ok {
+	out := new(big.Int)
+	if !uniswapv2.GetAmountOutInto(out, req.SrcAmount, reserveIn, reserveOut) || out.Sign() == 0 {
 		return nil, ErrInsufficientLiquidity
 	}
-	return amountOut, nil
+
+	return out, nil
 }
