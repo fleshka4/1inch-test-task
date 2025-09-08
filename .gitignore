@@ -32,3 +32,5 @@ go.work.sum
 # .vscode/
 
 cfg/config.yaml
+
+bin/
