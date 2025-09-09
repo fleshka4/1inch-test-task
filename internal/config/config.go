@@ -16,46 +16,57 @@ type Config struct {
 	GraceTimeout      time.Duration `yaml:"shutdown_timeout"`
 	RequestTimeout    time.Duration `yaml:"request_timeout"`
 	ReadHeaderTimeout time.Duration `yaml:"read_header_timeout"`
+	CallTimeout       time.Duration `yaml:"call_timeout"`
 }
 
 // Load reads the config from a YAML file path.
-// Fails fatally if config is invalid or file is missing.
-func Load(path string) (Config, error) {
+// Fails if config is invalid or file is missing.
+func Load(path string) (*Config, error) {
 	//nolint:gosec
-	f, err := os.Open(path)
+	file, err := os.Open(path)
 	if err != nil {
-		return Config{}, errors.Wrap(err, "os.Open")
+		return nil, errors.Wrap(err, "os.Open")
 	}
-	defer func(f *os.File) {
-		if err := f.Close(); err != nil {
-			log.Printf("failed to close config file: f.Close: %v", err)
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("failed to close config file: file.Close: %v", err)
 		}
-	}(f)
+	}()
 
 	var cfg Config
-	decoder := yaml.NewDecoder(f)
+	decoder := yaml.NewDecoder(file)
 	if err := decoder.Decode(&cfg); err != nil {
-		return Config{}, errors.Wrap(err, "decoder.Decode")
-	}
-
-	// Fallbacks
-	const defaultTimeout = 5 * time.Second
-	if cfg.ListenAddr == "" {
-		cfg.ListenAddr = ":1337"
-	}
-	if cfg.GraceTimeout == 0 {
-		cfg.GraceTimeout = defaultTimeout
-	}
-	if cfg.RequestTimeout == 0 {
-		cfg.RequestTimeout = defaultTimeout
-	}
-	if cfg.ReadHeaderTimeout == 0 {
-		cfg.ReadHeaderTimeout = defaultTimeout
+		return nil, errors.Wrap(err, "decoder.Decode")
 	}
 
 	if cfg.RPCURL == "" {
-		return Config{}, errors.New("rpc_url is required")
+		return nil, errors.New("rpc_url is required")
 	}
 
-	return cfg, nil
+	cfg.applyDefaults()
+
+	return &cfg, nil
+}
+
+func (c *Config) applyDefaults() {
+	const (
+		defaultTimeout = 5 * time.Second
+		listenAddr     = ":1337"
+	)
+
+	if c.ListenAddr == "" {
+		c.ListenAddr = listenAddr
+	}
+	if c.GraceTimeout <= 0 {
+		c.GraceTimeout = defaultTimeout
+	}
+	if c.RequestTimeout <= 0 {
+		c.RequestTimeout = defaultTimeout
+	}
+	if c.ReadHeaderTimeout <= 0 {
+		c.ReadHeaderTimeout = defaultTimeout
+	}
+	if c.CallTimeout <= 0 {
+		c.CallTimeout = defaultTimeout
+	}
 }
