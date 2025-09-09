@@ -1,4 +1,4 @@
-package uniswapv2
+package dexmath
 
 import (
 	"math/big"
@@ -45,7 +45,7 @@ func TestGetAmountOut_Basic(t *testing.T) {
 	if !ok {
 		t.Fatalf("ok=false")
 	}
-	if out.Cmp(bi("90")) != 0 { // 90.6... -> 90
+	if out.Cmp(bi("90")) != 0 { // 90.6... -> 90.
 		t.Fatalf("want 90 got %s", out.String())
 	}
 }
@@ -80,7 +80,7 @@ func BenchmarkGetAmountOut_NoAllocs(b *testing.B) {
 	ain := bi("1000000000000000000")
 	rIn := bi("1234567890000000000000")
 	rOut := bi("987654321000000000000000")
-	out := new(big.Int) // allocate once and reuse
+	out := new(big.Int) // allocate once and reuse.
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if !GetAmountOutInto(out, ain, rIn, rOut) {

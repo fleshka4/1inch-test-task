@@ -1,8 +1,8 @@
 # Uniswap V2 Off-chain Estimator
 
 This project is a backend service that implements a single REST API endpoint for estimating swap amounts on Uniswap V2 pools.
-It follows Clean Architecture principles, separating concerns into transport (HTTP), service (business logic), infra (Ethereum client), and pure math layers. This makes the service easy to extend (e.g. add gRPC transport) and test (interfaces are mockable).
-
+It follows Clean Architecture principles, separating concerns into transport (HTTP),
+service (business logic), infra (Ethereum client), and pure math layers. This makes the service easy to extend (e.g. add gRPC transport).
 
 ## Endpoints
 ### estimate
@@ -10,6 +10,7 @@ It follows Clean Architecture principles, separating concerns into transport (HT
 ```shell
 GET /estimate
 ```
+
 Accepts query parameters:
 - pool — address of Uniswap V2 pair contract
 - src — address of source token
@@ -26,6 +27,11 @@ curl "http://localhost:1337/estimate?pool=0x0d4a11d5eeaac28ec3f61d100daf4d40471f
 ```
 
 ### ping
+
+```shell
+GET /ping
+```
+
 Just easy healthcheck
 ```shell
 curl http://localhost:1337/ping
@@ -38,13 +44,17 @@ curl http://localhost:1337/ping
 
 ## Configuration
 - By default, the app expects `config/config.yaml`.
-- If missing, you must create it or copy from `config/config.yaml.example`, do not forget to replace value in rpc_url.
+- If missing, you must create it or copy from `config/config.yaml.example`, do not forget to replace value in `rpc_url`.
 - Alternatively, you can set `CONFIG_PATH` env variable to specify a custom config.
 
 ## Build
 Command to build project:
 ```shell
 make build
+```
+Command to build binary:
+```shell
+make build-server
 ```
 Generate mocks:
 ```shell
@@ -70,6 +80,10 @@ make benchmark
 ```
 
 ## Run server
+```shell
+make run
+```
+or
 ```shell
 go run ./cmd/server/main.go
 ```

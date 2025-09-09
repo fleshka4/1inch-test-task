@@ -5,9 +5,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"time"
 
-	"github.com/fleshka4/1inch-test-task/internal/service"
+	"github.com/fleshka4/1inch-test-task/internal/apperrors"
 	"github.com/fleshka4/1inch-test-task/internal/service/dto"
 	"github.com/fleshka4/1inch-test-task/internal/transport/http/validate"
 )
@@ -21,7 +20,8 @@ func (s *Server) handleEstimate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), code)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+
+	ctx, cancel := context.WithTimeout(r.Context(), s.requestTimeout)
 	defer cancel()
 
 	out, err := s.est.Estimate(ctx, dto.EstimateRequest{
@@ -32,10 +32,8 @@ func (s *Server) handleEstimate(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInsufficientLiquidity), errors.Is(err, service.ErrInvalidArgument):
+		case errors.Is(err, apperrors.ErrInsufficientLiquidity), errors.Is(err, apperrors.ErrInvalidArgument):
 			http.Error(w, err.Error(), http.StatusBadRequest)
-		case errors.Is(err, service.ErrPairRead):
-			http.Error(w, err.Error(), http.StatusBadGateway)
 		default:
 			http.Error(w, "internal error", http.StatusInternalServerError)
 		}

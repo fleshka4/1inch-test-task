@@ -20,18 +20,24 @@ type Server struct {
 	est service.Service
 	mux *http.ServeMux
 
-	readHeaderTimeout time.Duration
 	graceTimeout      time.Duration
+	readHeaderTimeout time.Duration
+	requestTimeout    time.Duration
 }
 
 // NewServer creates a new HTTP server with registered routes.
-func NewServer(est service.Service, cfg config.Config) *Server {
+func NewServer(est service.Service, cfg *config.Config) (*Server, error) {
+	if cfg == nil {
+		return nil, errors.New("config is nil")
+	}
+
 	s := &Server{
 		est: est,
 		mux: http.NewServeMux(),
 
-		readHeaderTimeout: cfg.ReadHeaderTimeout,
 		graceTimeout:      cfg.GraceTimeout,
+		readHeaderTimeout: cfg.ReadHeaderTimeout,
+		requestTimeout:    cfg.RequestTimeout,
 	}
 
 	s.mux.HandleFunc("/estimate", s.handleEstimate)
@@ -42,7 +48,7 @@ func NewServer(est service.Service, cfg config.Config) *Server {
 		}
 	})
 
-	return s
+	return s, nil
 }
 
 // ListenAndServe starts the HTTP server and enables graceful shutdown.
@@ -63,7 +69,7 @@ func (s *Server) ListenAndServe(addr string) error {
 		}
 	}()
 
-	// Block until a signal is received
+	// Block until a signal is received.
 	<-stop
 	log.Println("shutting down server...")
 

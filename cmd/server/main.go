@@ -21,14 +21,17 @@ func main() {
 		log.Fatalf("config.Load: %v", err)
 	}
 
-	client, err := uniswap.NewClient(cfg.RPCURL)
+	client, err := uniswap.NewClient(cfg.RPCURL, cfg.CallTimeout)
 	if err != nil {
 		log.Fatalf("uniswap.NewClient: %v", err)
 	}
 
 	estimator := service.NewEstimatorService(client)
 
-	srv := http.NewServer(estimator, cfg)
+	srv, err := http.NewServer(estimator, cfg)
+	if err != nil {
+		log.Fatalf("http.NewServer: %v", err)
+	}
 
 	err = srv.ListenAndServe(cfg.ListenAddr)
 	if err != nil {

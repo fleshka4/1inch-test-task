@@ -1,14 +1,16 @@
-package uniswapv2
+package dexmath
 
 import (
 	"math/big"
 	"sync"
 )
 
-// Fee constants.
 var (
+	// Fee constants.
 	feeMul = big.NewInt(997)
 	feeDen = big.NewInt(1000)
+
+	defaultMath = newMathService()
 )
 
 type mathTmp struct {
@@ -35,16 +37,11 @@ func newMathService() *mathService {
 	}
 }
 
-var defaultMath = newMathService()
-
-// GetAmountOutInto writes the result into out and returns ok.
-// out must be non-nil; this function does not allocate for temporaries
-// if the pool is warm. Caller should reuse `out` when possible.
-func (m *mathService) GetAmountOutInto(out, amountIn, reserveIn, reserveOut *big.Int) bool {
+func (m *mathService) getAmountOutInto(out, amountIn, reserveIn, reserveOut *big.Int) bool {
 	if out == nil {
 		return false
 	}
-	// basic validation
+	// basic validation.
 	if amountIn.Sign() <= 0 || reserveIn.Sign() <= 0 || reserveOut.Sign() <= 0 {
 		out.SetInt64(0)
 		return false
@@ -52,13 +49,13 @@ func (m *mathService) GetAmountOutInto(out, amountIn, reserveIn, reserveOut *big
 
 	t := m.pool.Get().(*mathTmp)
 
-	// ainFee := amountIn * 997
+	// ainFee := amountIn * 997.
 	t.a.Mul(amountIn, feeMul)
 
-	// num := ainFee * reserveOut
+	// num := ainFee * reserveOut.
 	t.b.Mul(t.a, reserveOut)
 
-	// den := reserveIn * 1000 + ainFee
+	// den := reserveIn * 1000 + ainFee.
 	t.c.Mul(reserveIn, feeDen)
 	t.c.Add(t.c, t.a)
 
@@ -68,10 +65,10 @@ func (m *mathService) GetAmountOutInto(out, amountIn, reserveIn, reserveOut *big
 		return false
 	}
 
-	// out = num / den
+	// out = num / den.
 	out.Quo(t.b, t.c)
 
-	// return temps to pool
+	// return temps to pool.
 	m.pool.Put(t)
 	return true
 }
@@ -84,7 +81,7 @@ func (m *mathService) GetAmountOutInto(out, amountIn, reserveIn, reserveOut *big
 // out must be non-nil; this function does not allocate for temporaries
 // if the pool is warm. Caller should reuse `out` when possible.
 func GetAmountOutInto(out, amountIn, reserveIn, reserveOut *big.Int) bool {
-	return defaultMath.GetAmountOutInto(out, amountIn, reserveIn, reserveOut)
+	return defaultMath.getAmountOutInto(out, amountIn, reserveIn, reserveOut)
 }
 
 // GetAmountOut computes the amount of output tokens received for a given input amount,
@@ -94,6 +91,6 @@ func GetAmountOutInto(out, amountIn, reserveIn, reserveOut *big.Int) bool {
 // It represents backwards-compatible allocator: returns a newly allocated *big.Int (uses pool for temps).
 func GetAmountOut(amountIn, reserveIn, reserveOut *big.Int) (*big.Int, bool) {
 	out := new(big.Int)
-	ok := defaultMath.GetAmountOutInto(out, amountIn, reserveIn, reserveOut)
+	ok := defaultMath.getAmountOutInto(out, amountIn, reserveIn, reserveOut)
 	return out, ok
 }

@@ -15,10 +15,10 @@ type Service interface {
 
 // EstimatorService represents struct for business logic.
 type EstimatorService struct {
-	cli uniswap.Client
+	uniswapClient uniswap.Client
 }
 
 // NewEstimatorService creates EstimatorService.
 func NewEstimatorService(cli uniswap.Client) *EstimatorService {
-	return &EstimatorService{cli: cli}
+	return &EstimatorService{uniswapClient: cli}
 }
